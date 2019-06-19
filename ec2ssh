@@ -4,8 +4,50 @@
 # Manually delete files from this folder to flush cached data.
 cache='/tmp/ec2ssh.cache'
 
-# Create cache dir, if needed.
-[ -d ${cache} ] || mkdir ${cache}
+
+check_dependencies () {
+    if ! command -v jq > /dev/null ; then
+        echo "Please install jq (https://stedolan.github.io/jq/)" ; exit 1
+    fi
+    if ! command -v fzf > /dev/null ; then
+        echo "Please install fzf (https://github.com/junegunn/fzf)" ; exit 1
+    fi
+    if ! command -v aws > /dev/null ; then echo "Please install aws" ; exit 1 ; fi
+}
+
+
+usage () {
+    cat <<.
+Usage: $(basename "$0")
+    -h,--help       Show this message and exit.
+    -e,--env        Work on this environment (default: prod).
+    --show          Don't ssh to the instance. Just show the IP address.
+.
+}
+
+parse_opts () {
+    tempopt=$(getopt --name $(basename "$0") -o u,h,e: -l usage,help,env: -- "$@")
+    # Finish if received some unknown option.
+    if [ $? != 0 ] ; then usage && exit 1 ; fi
+
+    eval set -- "$tempopt"
+
+    # Default values.
+    env="prod"
+
+    # Parse named options.
+    while true ; do
+        case "$1" in
+            -u|--usage|-h|--help) usage && exit ;;
+            -e|--env) env="$2" ; shift 2 ;;
+            --) shift 1 ; break ;;
+            *) echo "Internal error!" >&2 ; exit 1 ;;
+        esac
+    done
+
+    # Parse arguments.
+    if [ $# != 0 ] ; then usage && exit 1 ; fi
+}
 
 
 get_ec2roles () {
@@ -45,7 +87,13 @@ jq_name_and_ip () {
 .
 }
 
-env=${1:-prod}          # default env: prod
+
+check_dependencies
+parse_opts "$@"
+
+# Create cache dir, if needed.
+[ -d ${cache} ] || mkdir ${cache}
+
 role=$(ec2roles)
 host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "Host> ")
 addr=$(echo "${host_and_addr}" | awk '{print $2}')

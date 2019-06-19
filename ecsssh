@@ -9,18 +9,50 @@ set -o pipefail
 
 check_dependencies () {
     if ! command -v jq > /dev/null ; then
-        echo "Please install jq (https://stedolan.github.io/jq/)"
-        exit 1
+        echo "Please install jq (https://stedolan.github.io/jq/)" ; exit 1
     fi
-
     if ! command -v fzf > /dev/null ; then
-        echo "Please install fzf (https://github.com/junegunn/fzf)"
-        exit 1
+        echo "Please install fzf (https://github.com/junegunn/fzf)" ; exit 1
     fi
+    if ! command -v aws > /dev/null ; then echo "Please install aws" ; exit 1 ; fi
+}
+
+
+usage () {
+    cat <<.
+Usage: $(basename "$0")
+    -h,--help       Show this message and exit.
+    --show          Don't ssh to the instance. Just show the IP address.
+.
+}
+
+parse_opts () {
+    tempopt=$(getopt --name $(basename "$0") -o u,h -l usage,help,show -- "$@")
+    # Finish if received some unknown option.
+    if [ $? != 0 ] ; then usage && exit 1 ; fi
+
+    eval set -- "$tempopt"
+
+    # Default values.
+    just_show="false"
+
+    # Parse named options.
+    while true ; do
+        case "$1" in
+            -u|--usage|-h|--help) usage && exit ;;
+            --show) just_show="true" ; shift 1 ;;
+            --) shift 1 ; break ;;
+            *) echo "Internal error!" >&2 ; exit 1 ;;
+        esac
+    done
+
+    # Parse arguments.
+    if [ $# != 0 ] ; then usage && exit 1 ; fi
 }
 
 
 check_dependencies
+parse_opts "$@"
 
 
 cluster=$(
@@ -49,8 +81,9 @@ private_ip=$(
     | jq -r '.[].PrivateIpAddress')
 
 
-if [ "$1" = "--show" ] ; then
+if [ "${just_show}" = "true" ] ; then
     echo "${private_ip}"
-else
-    ssh "${private_ip}"
+    exit 0
 fi
+
+ssh "${private_ip}"
