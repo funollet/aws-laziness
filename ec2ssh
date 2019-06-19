@@ -1,0 +1,61 @@
+#!/bin/bash
+# ec2ssh
+
+# Manually delete files from this folder to flush cached data.
+cache='/tmp/ec2ssh.cache'
+
+# Create cache dir, if needed.
+[ -d ${cache} ] || mkdir ${cache}
+
+
+get_ec2roles () {
+    # Retrieves all EC2 tags "Role"
+    aws ec2 describe-instances --no-paginate --output json \
+        --query "Reservations[].Instances" \
+        --filters "Name=tag:Env,Values=${env}" "Name=instance-state-name,Values=running" \
+    | jq -r '.[][].Tags[] | select(.Key=="Role") | .Value' \
+    | sort | uniq
+}
+
+
+ec2roles () {
+    if [ ! -f "${cache}/${env}.roles" ] ; then
+        get_ec2roles > "${cache}/${env}.roles"
+    fi
+    fzf --prompt "Role> " < "${cache}/${env}.roles"
+}
+
+
+ec2instances () {
+    aws ec2 describe-instances --no-paginate --output json \
+        --filters "Name=tag:Env,Values=${env}" "Name=tag:Role,Values=${role}" \
+                  "Name=instance-state-name,Values=running" \
+        --query "Reservations[].Instances"
+}
+
+
+jq_name_and_ip () {
+    cat <<.
+        .[][] |
+        # enrich all tags with IP address
+        .Tags[] + { "Ip": .PrivateIpAddress } |
+        # keep only tags with Key="Name"
+        select(.Key=="Name") |
+        [ .Value, .Ip ] | @tsv
+.
+}
+
+env=${1:-prod}          # default env: prod
+role=$(ec2roles)
+host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "Host> ")
+addr=$(echo "${host_and_addr}" | awk '{print $2}')
+
+# Remove the local functions from global env.
+unset -f jq_name_and_ip
+unset -f ec2instances
+unset -f ec2roles
+unset -f get_ec2roles
+
+
+echo "${host_and_addr}"
+ssh "${addr}"
