@@ -1,0 +1,56 @@
+#!/bin/bash
+# ecsssh
+#
+# Given an ECS service, ssh to any EC2 instance running it.
+
+set -e
+set -o pipefail
+
+
+check_dependencies () {
+    if ! command -v jq > /dev/null ; then
+        echo "Please install jq (https://stedolan.github.io/jq/)"
+        exit 1
+    fi
+
+    if ! command -v fzf > /dev/null ; then
+        echo "Please install fzf (https://github.com/junegunn/fzf)"
+        exit 1
+    fi
+}
+
+
+check_dependencies
+
+
+cluster=$(
+    aws ecs list-clusters | jq -r '.clusterArns[]' \
+    | fzf -0 --prompt 'cluster> ')
+
+service=$(
+    aws ecs list-services --cluster "${cluster}" | jq -r '.serviceArns[]' \
+    | cut -d: -f6 | fzf -0 --prompt 'service> ' | tr '/' ':')
+
+# Any EC2 instance is good, so just pick the first one.
+c_instance=$(
+    aws ecs list-container-instances --cluster "${cluster}" \
+    --filter "task:group =~ ${service}" \
+    | jq -r '.containerInstanceArns[0]')
+
+instance_id=$(
+    aws ecs describe-container-instances --cluster "${cluster}" \
+    --container-instances "${c_instance}" \
+    | jq -r '.containerInstances[].ec2InstanceId')
+
+private_ip=$(
+    aws ec2 describe-instances --output json \
+    --filters "Name=instance-id,Values=${instance_id}" \
+    --query 'Reservations[].Instances[]' \
+    | jq -r '.[].PrivateIpAddress')
+
+
+if [ "$1" = "--show" ] ; then
+    echo "${private_ip}"
+else
+    ssh "${private_ip}"
+fi
