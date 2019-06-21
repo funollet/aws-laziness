@@ -61,13 +61,16 @@ cluster=$(
 
 service=$(
     aws ecs list-services --cluster "${cluster}" | jq -r '.serviceArns[]' \
-    | cut -d: -f6 | fzf -0 --prompt 'service> ' | tr '/' ':')
+    | cut -d'/' -f2 | fzf -0 --prompt 'service> ')
 
-# Any EC2 instance is good, so just pick the first one.
+task_ids=$(aws ecs list-tasks --cluster $cluster --service $service \
+    | jq -r '.taskArns[]')
+
 c_instance=$(
-    aws ecs list-container-instances --cluster "${cluster}" \
-    --filter "task:group =~ ${service}" \
-    | jq -r '.containerInstanceArns[0]')
+    aws ecs describe-tasks --cluster $cluster --tasks $task_ids \
+    | jq -r '.tasks[] | [ .lastStatus, .containerInstanceArn ] | @tsv' \
+    | fzf -0 --prompt 'task> '\
+    | awk '{print $2}')
 
 instance_id=$(
     aws ecs describe-container-instances --cluster "${cluster}" \
