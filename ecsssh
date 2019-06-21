@@ -21,13 +21,14 @@ check_dependencies () {
 usage () {
     cat <<.
 Usage: $(basename "$0")
-    -h,--help       Show this message and exit.
-    --show          Don't ssh to the instance. Just show the IP address.
+    -h,--help        Show this message and exit.
+    --show           Don't ssh to the instance. Just show the IP address.
+    -l <login_name>  Pass this option to SSH. Login with this username.
 .
 }
 
 parse_opts () {
-    tempopt=$(getopt --name $(basename "$0") -o u,h -l usage,help,show -- "$@")
+    tempopt=$(getopt --name $(basename "$0") -o u,h,l: -l usage,help,show -- "$@")
     # Finish if received some unknown option.
     if [ $? != 0 ] ; then usage && exit 1 ; fi
 
@@ -35,12 +36,14 @@ parse_opts () {
 
     # Default values.
     just_show="false"
+    ssh_opts=""
 
     # Parse named options.
     while true ; do
         case "$1" in
             -u|--usage|-h|--help) usage && exit ;;
             --show) just_show="true" ; shift 1 ;;
+            -l) ssh_opts="${ssh_opts} -l $2" ; shift 2 ;;
             --) shift 1 ; break ;;
             *) echo "Internal error!" >&2 ; exit 1 ;;
         esac
@@ -89,4 +92,4 @@ if [ "${just_show}" = "true" ] ; then
     exit 0
 fi
 
-ssh "${private_ip}"
+ssh ${ssh_opts} "${private_ip}"
