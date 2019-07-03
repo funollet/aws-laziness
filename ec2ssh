@@ -21,7 +21,6 @@ usage () {
 Usage: $(basename "$0")
     -h,--help       Show this message and exit.
     -e,--env        Work on this environment (default: prod).
-    --show          Don't ssh to the instance. Just show the IP address.
 .
 }
 
@@ -61,6 +60,10 @@ get_ec2roles () {
 
 
 ec2roles () {
+    # Remove empty cache files.
+    if [ ! -s "${cache}/${env}.roles" ] ; then
+        rm -f "${cache}/${env}.roles"
+    fi
     if [ ! -f "${cache}/${env}.roles" ] ; then
         get_ec2roles > "${cache}/${env}.roles"
     fi
