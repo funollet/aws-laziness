@@ -21,11 +21,12 @@ usage () {
 Usage: $(basename "$0")
     -h,--help       Show this message and exit.
     -e,--env        Work on this environment (default: prod).
+    -l <login_name> Pass this option to SSH. Login with this username.
 .
 }
 
 parse_opts () {
-    tempopt=$(getopt --name $(basename "$0") -o u,h,e: -l usage,help,env: -- "$@")
+    tempopt=$(getopt --name $(basename "$0") -o u,h,e:,l: -l usage,help,env: -- "$@")
     # Finish if received some unknown option.
     if [ $? != 0 ] ; then usage && exit 1 ; fi
 
@@ -33,12 +34,14 @@ parse_opts () {
 
     # Default values.
     env="prod"
+    ssh_opts=""
 
     # Parse named options.
     while true ; do
         case "$1" in
             -u|--usage|-h|--help) usage && exit ;;
             -e|--env) env="$2" ; shift 2 ;;
+            -l) ssh_opts="${ssh_opts} -l $2" ; shift 2 ;;
             --) shift 1 ; break ;;
             *) echo "Internal error!" >&2 ; exit 1 ;;
         esac
@@ -109,4 +112,4 @@ unset -f get_ec2roles
 
 
 echo "${host_and_addr}"
-ssh "${addr}"
+ssh ${ssh_opts} "${addr}"
