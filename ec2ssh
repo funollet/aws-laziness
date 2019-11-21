@@ -21,7 +21,6 @@ usage () {
 Usage: $(basename "$0")
     -h,--help       Show this message and exit.
     -e,--env        Work on this environment (default: prod).
-    -l <login_name> Pass this option to SSH. Login with this username.
 .
 }
 
@@ -34,14 +33,12 @@ parse_opts () {
 
     # Default values.
     env="prod"
-    ssh_opts=""
 
     # Parse named options.
     while true ; do
         case "$1" in
             -u|--usage|-h|--help) usage && exit ;;
             -e|--env) env="$2" ; shift 2 ;;
-            -l) ssh_opts="${ssh_opts} -l $2" ; shift 2 ;;
             --) shift 1 ; break ;;
             *) echo "Internal error!" >&2 ; exit 1 ;;
         esac
@@ -86,10 +83,10 @@ jq_name_and_ip () {
     cat <<.
         .[][] |
         # enrich all tags with IP address
-        .Tags[] + { "Ip": .PrivateIpAddress } |
+        .Tags[] + { "Ip": .PrivateIpAddress, "InstanceId": .InstanceId } |
         # keep only tags with Key="Name"
         select(.Key=="Name") |
-        [ .Value, .Ip ] | @tsv
+        [ .Value, .Ip, .InstanceId ] | @tsv
 .
 }
 
@@ -103,6 +100,19 @@ parse_opts "$@"
 role=$(ec2roles)
 host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "Host> ")
 addr=$(echo "${host_and_addr}" | awk '{print $2}')
+instance_id=$(echo "${host_and_addr}" | awk '{print $3}')
+
+image_id=$(
+    aws ec2 describe-instances --output json \
+    --filters "Name=instance-id,Values=${instance_id}" \
+    | jq -r '.Reservations[].Instances[].ImageId')
+
+ssh_user=$(
+    aws ec2 describe-images --image-ids "${image_id}" \
+    | jq -r '.Images[]? | .Name,.Tags[]?.Value' \
+    | grep -q -i ubuntu \
+    && echo ubuntu || echo ec2-user
+)
 
 # Remove the local functions from global env.
 unset -f jq_name_and_ip
@@ -112,4 +122,4 @@ unset -f get_ec2roles
 
 
 echo "${host_and_addr}"
-ssh ${ssh_opts} "${addr}"
+ssh ${ssh_user}@${addr}
