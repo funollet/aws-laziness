@@ -21,6 +21,10 @@ usage () {
 Usage: $(basename "$0")
     -h,--help       Show this message and exit.
     -e,--env        Work on this environment (default: prod).
+
+By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
+
+    EC2_SSH_BINARY=mssh
 .
 }
 
@@ -92,6 +96,13 @@ jq_name_and_ip () {
 
 
 check_dependencies
+
+case "${EC2_SSH_BINARY}" in
+    "ssh")      ssh_binary=ssh ;;
+    "mssh")     ssh_binary=mssh ;;
+    *)          ssh_binary=ssh ;;
+esac
+
 parse_opts "$@"
 
 # Create cache dir, if needed.
@@ -122,4 +133,9 @@ unset -f get_ec2roles
 
 
 echo "${host_and_addr}"
-ssh ${ssh_user}@${addr}
+
+if [ "${ssh_binary}" = "mssh" ] ; then
+    mssh -t ${instance_id} ${ssh_user}@${addr}
+else
+    ssh -l ${ssh_user} "${addr}"
+fi

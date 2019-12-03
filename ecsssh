@@ -23,7 +23,10 @@ usage () {
 Usage: $(basename "$0")
     -h,--help        Show this message and exit.
     --show           Don't ssh to the instance. Just show the IP address.
-    -l <login_name>  Pass this option to SSH. Login with this username.
+
+By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
+
+    EC2_SSH_BINARY=mssh
 .
 }
 
@@ -36,14 +39,12 @@ parse_opts () {
 
     # Default values.
     just_show="false"
-    ssh_opts=""
 
     # Parse named options.
     while true ; do
         case "$1" in
             -u|--usage|-h|--help) usage && exit ;;
             --show) just_show="true" ; shift 1 ;;
-            -l) ssh_opts="${ssh_opts} -l $2" ; shift 2 ;;
             --) shift 1 ; break ;;
             *) echo "Internal error!" >&2 ; exit 1 ;;
         esac
@@ -53,6 +54,11 @@ parse_opts () {
     if [ $# != 0 ] ; then usage && exit 1 ; fi
 }
 
+case "${EC2_SSH_BINARY}" in
+    "ssh") ssh_binary=ssh ;;
+    "mssh") ssh_binary=mssh ;;
+    *) ssh_binary=ssh ;;
+esac
 
 check_dependencies
 parse_opts "$@"
@@ -86,10 +92,26 @@ private_ip=$(
     --query 'Reservations[].Instances[]' \
     | jq -r '.[].PrivateIpAddress')
 
+image_id=$(
+    aws ec2 describe-instances --output json \
+    --filters "Name=instance-id,Values=${instance_id}" \
+    | jq -r '.Reservations[].Instances[].ImageId')
+
+ssh_user=$(
+    aws ec2 describe-images --image-ids "${image_id}" \
+    | jq -r '.Images[]? | .Name,.Tags[]?.Value' \
+    | grep -q -i ubuntu \
+    && echo ubuntu || echo ec2-user
+)
 
 if [ "${just_show}" = "true" ] ; then
     echo "${private_ip}"
     exit 0
 fi
 
-ssh ${ssh_opts} "${private_ip}"
+if [ "${ssh_binary}" = "mssh" ] ; then
+    mssh -t ${instance_id} ${ssh_user}@${private_ip}
+else
+    ssh -l ${ssh_user} "${private_ip}"
+fi
+
