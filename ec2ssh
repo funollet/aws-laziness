@@ -138,7 +138,7 @@ unset -f get_ec2roles
 echo "${host_and_addr}"
 
 if [ "${ssh_binary}" = "mssh" ] ; then
-    mssh ${ssh_user}@${instance_id}
+    mssh -t ${instance_id} ${ssh_user}@${addr}
 else
     ssh -l ${ssh_user} "${addr}"
 fi
