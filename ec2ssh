@@ -1,7 +1,6 @@
 #!/bin/bash
 # ec2ssh
 
-# Manually delete files from this folder to flush cached data.
 cache='/tmp/ec2ssh.cache'
 
 
@@ -21,6 +20,7 @@ usage () {
 Usage: $(basename "$0")
     -h,--help       Show this message and exit.
     -e,--env        Work on this environment (default: prod).
+    -f,--flush      Flush cached data.
 
 By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
 
@@ -29,7 +29,7 @@ By default this tool connects using 'ssh'. To connect using 'mssh' set this env 
 }
 
 parse_opts () {
-    tempopt=$(getopt --name $(basename "$0") -o u,h,e:,l: -l usage,help,env: -- "$@")
+    tempopt=$(getopt --name $(basename "$0") -o u,h,e:,f -l usage,help,env:,flush -- "$@")
     # Finish if received some unknown option.
     if [ $? != 0 ] ; then usage && exit 1 ; fi
 
@@ -43,6 +43,7 @@ parse_opts () {
         case "$1" in
             -u|--usage|-h|--help) usage && exit ;;
             -e|--env) env="$2" ; shift 2 ;;
+            -f|--flush) flush_cache && exit ;;
             --) shift 1 ; break ;;
             *) echo "Internal error!" >&2 ; exit 1 ;;
         esac
@@ -60,6 +61,11 @@ get_ec2roles () {
         --filters "Name=tag:Env,Values=${env}" "Name=instance-state-name,Values=running" \
     | jq -r '.[][].Tags[] | select(.Key=="Role") | .Value' \
     | sort | uniq
+}
+
+
+flush_cache () {
+    rm -f ${cache}/*.roles
 }
 
 
