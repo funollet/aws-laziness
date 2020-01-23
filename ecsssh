@@ -21,8 +21,8 @@ check_dependencies () {
 usage () {
     cat <<.
 Usage: $(basename "$0")
-    -h,--help        Show this message and exit.
-    --show           Don't ssh to the instance. Just show the IP address.
+    -h   (Help) Show this message and exit.
+    -j   Just show the IP address. Don't ssh to the instance.
 
 By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
 
@@ -31,24 +31,19 @@ By default this tool connects using 'ssh'. To connect using 'mssh' set this env 
 }
 
 parse_opts () {
-    tempopt=$(getopt --name $(basename "$0") -o u,h,l: -l usage,help,show -- "$@")
-    # Finish if received some unknown option.
-    if [ $? != 0 ] ; then usage && exit 1 ; fi
-
-    eval set -- "$tempopt"
 
     # Default values.
     just_show="false"
 
-    # Parse named options.
-    while true ; do
-        case "$1" in
-            -u|--usage|-h|--help) usage && exit ;;
-            --show) just_show="true" ; shift 1 ;;
+    while getopts u,h,j OPT; do
+        case "${OPT}" in
+            u|h) usage && exit ;;
+            j) just_show="true" ; shift 1 ;;
             --) shift 1 ; break ;;
             *) echo "Internal error!" >&2 ; exit 1 ;;
         esac
     done
+    shift $((OPTIND-1)) # remove parsed options and args from $@ list
 
     # Parse arguments.
     if [ $# != 0 ] ; then usage && exit 1 ; fi
