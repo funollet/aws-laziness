@@ -37,10 +37,9 @@ parse_opts () {
 
     while getopts u,h,j OPT; do
         case "${OPT}" in
-            u|h) usage && exit ;;
-            j) just_show="true" ; shift 1 ;;
-            --) shift 1 ; break ;;
-            *) echo "Internal error!" >&2 ; exit 1 ;;
+            u|h)    usage && exit ;;
+            j)      just_show="true" ;;
+            \? )    echo && usage && exit 1 ;;
         esac
     done
     shift $((OPTIND-1)) # remove parsed options and args from $@ list

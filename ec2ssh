@@ -125,10 +125,13 @@ image_id=$(
     | jq -r '.Reservations[].Instances[].ImageId')
 
 ssh_user=$(
-    aws ec2 describe-images --image-ids "${image_id}" \
-    | jq -r '.Images[]? | .Name,.Tags[]?.Value' \
-    | grep -q -i ubuntu \
-    && echo ubuntu || echo ec2-user
+    ami_name=$(aws ec2 describe-images --image-ids "${image_id}" \
+        | jq -r '.Images[]? | .Name,.Tags[]?.Value')
+    if echo "${ami_name}" | grep -E -q -i 'ubuntu|mongoose' ; then
+        echo ubuntu
+    else
+        echo ec2-user
+    fi
 )
 
 # Remove the local functions from global env.
