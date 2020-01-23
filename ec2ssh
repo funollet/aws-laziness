@@ -18,9 +18,9 @@ check_dependencies () {
 usage () {
     cat <<.
 Usage: $(basename "$0")
-    -h,--help       Show this message and exit.
-    -e,--env        Work on this environment (default: prod).
-    -f,--flush      Flush cached data.
+    -h    Show this message and exit.
+    -e    Work on this environment (default: prod).
+    -f    Flush cached data.
 
 By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
 
@@ -29,27 +29,21 @@ By default this tool connects using 'ssh'. To connect using 'mssh' set this env 
 }
 
 parse_opts () {
-    tempopt=$(getopt --name $(basename "$0") -o u,h,e:,f -l usage,help,env:,flush -- "$@")
-    # Finish if received some unknown option.
-    if [ $? != 0 ] ; then usage && exit 1 ; fi
-
-    eval set -- "$tempopt"
-
     # Default values.
     env="prod"
 
-    # Parse named options.
-    while true ; do
-        case "$1" in
-            -u|--usage|-h|--help) usage && exit ;;
-            -e|--env) env="$2" ; shift 2 ;;
-            -f|--flush) flush_cache && exit ;;
-            --) shift 1 ; break ;;
-            *) echo "Internal error!" >&2 ; exit 1 ;;
+    # Parse arguments.
+    while getopts u,h,e:,f OPT; do
+        case "${OPT}" in
+            u|h)    usage && exit ;;
+            e)      env="${OPTARG}" ;;
+            f)      flush_cache && exit ;;
+            \? )    echo && usage && exit 1 ;;
         esac
     done
+    shift $((OPTIND-1)) # remove parsed options and args from $@ list
 
-    # Parse arguments.
+    # Finish if received some unknown option.
     if [ $# != 0 ] ; then usage && exit 1 ; fi
 }
 
