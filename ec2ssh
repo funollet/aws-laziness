@@ -18,9 +18,10 @@ check_dependencies () {
 usage () {
     cat <<.
 Usage: $(basename "$0")
-    -h    Show this message and exit.
-    -e    Work on this environment (default: prod).
-    -f    Flush cached data.
+    -h          Show this message and exit.
+    -e <env>    Work on this environment (default: prod).
+    -f          Flush cached data.
+    -l <user>   Login with this username (as in 'ssh -l')
 
 By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
 
@@ -31,13 +32,15 @@ By default this tool connects using 'ssh'. To connect using 'mssh' set this env 
 parse_opts () {
     # Default values.
     env="prod"
+    ssh_user=""
 
     # Parse arguments.
-    while getopts u,h,e:,f OPT; do
+    while getopts u,h,e:,f,l: OPT; do
         case "${OPT}" in
             u|h)    usage && exit ;;
             e)      env="${OPTARG}" ;;
             f)      flush_cache && exit ;;
+            l)      ssh_user="${OPTARG}" ;;
             \? )    echo && usage && exit 1 ;;
         esac
     done
@@ -118,15 +121,17 @@ image_id=$(
     --filters "Name=instance-id,Values=${instance_id}" \
     | jq -r '.Reservations[].Instances[].ImageId')
 
-ssh_user=$(
+if [ -z "${ssh_user}" ] ; then
     ami_name=$(aws ec2 describe-images --image-ids "${image_id}" \
         | jq -r '.Images[]? | .Name,.Tags[]?.Value')
-    if echo "${ami_name}" | grep -E -q -i 'ubuntu|mongoose' ; then
-        echo ubuntu
-    else
-        echo ec2-user
-    fi
-)
+    ssh_user=$(
+        if echo "${ami_name}" | grep -E -q -i 'ubuntu' ; then
+            echo ubuntu
+        else
+            echo ec2-user
+        fi
+    )
+fi
 
 # Remove the local functions from global env.
 unset -f jq_name_and_ip
