@@ -104,7 +104,7 @@ if [ "${just_show}" = "true" ] ; then
 fi
 
 if [ "${ssh_binary}" = "mssh" ] ; then
-    mssh ${ssh_user}@${instance_id}
+    mssh -t ${instance_id} ${ssh_user}@${private_ip}
 else
     ssh -l ${ssh_user} "${private_ip}"
 fi
