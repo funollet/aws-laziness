@@ -64,7 +64,7 @@ cluster=$(
 
 service=$(
     aws ecs list-services --cluster "${cluster}" | jq -r '.serviceArns[]' \
-    | cut -d'/' -f2 | fzf -0 --prompt 'service> ')
+    | cut -d'/' -f2- | fzf -0 --prompt 'service> ')
 
 task_ids=$(aws ecs list-tasks --cluster $cluster --service $service \
     | jq -r '.taskArns[]')
