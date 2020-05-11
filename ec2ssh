@@ -67,6 +67,9 @@ flush_cache () {
 
 
 ec2roles () {
+    # create cache dir, if needed.
+    [ -d ${cache} ] || mkdir ${cache}
+
     # Remove empty cache files.
     if [ ! -s "${cache}/${env}.roles" ] ; then
         rm -f "${cache}/${env}.roles"
@@ -108,12 +111,9 @@ esac
 
 parse_opts "$@"
 
-# Create cache dir, if needed.
-[ -d ${cache} ] || mkdir ${cache}
-
 role=$(ec2roles)
 host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "Host> ")
-addr=$(echo "${host_and_addr}" | awk '{print $2}')
+private_ip=$(echo "${host_and_addr}" | awk '{print $2}')
 instance_id=$(echo "${host_and_addr}" | awk '{print $3}')
 
 image_id=$(
@@ -143,7 +143,9 @@ unset -f get_ec2roles
 echo "${host_and_addr}"
 
 if [ "${ssh_binary}" = "mssh" ] ; then
-    mssh -t ${instance_id} ${ssh_user}@${addr}
+    ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
 else
-    ssh -l ${ssh_user} "${addr}"
+    ssh_cmd="ssh -l ${ssh_user} ${private_ip}"
 fi
+
+$ssh_cmd
