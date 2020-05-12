@@ -3,6 +3,8 @@
 
 cache='/tmp/ec2ssh.cache'
 
+info () { echo "[INFO]" $* ; }
+
 
 check_dependencies () {
     if ! command -v jq > /dev/null ; then
@@ -96,7 +98,7 @@ ec2roles () {
     if [ ! -f "${cache}/${env}.roles" ] ; then
         get_ec2roles > "${cache}/${env}.roles"
     fi
-    fzf --prompt "Role> " < "${cache}/${env}.roles"
+    fzf --prompt "(${env}) Role> " < "${cache}/${env}.roles"
 }
 
 
@@ -139,7 +141,7 @@ use_mssh () {
 parse_opts "$@"
 
 role=$(ec2roles)
-host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "Host> ")
+host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "(${env}) Host> ")
 private_ip=$(echo "${host_and_addr}" | awk '{print $2}')
 instance_id=$(echo "${host_and_addr}" | awk '{print $3}')
 
@@ -167,7 +169,7 @@ unset -f ec2roles
 unset -f get_ec2roles
 
 
-echo "${host_and_addr}"
+info "Connecting to: ${host_and_addr}"
 
 if use_mssh ; then
     ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
