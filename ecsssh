@@ -23,10 +23,15 @@ usage () {
 Usage: $(basename "$0")
     -h, --help          Show this message and exit.
     -j, --just-show     Just show the IP address. Don't ssh to the instance.
+    --ssh           Force to connect using ssh.
+    --mssh          Force to connect using mssh.
 
-By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
+By default this tool connects using 'ssh'. If 'mssh' is found it will be used instead.
+To use either 'ssh' or 'mssh' for all connections set this env var:
 
     EC2_SSH_BINARY=mssh
+
+To change the default option just for one connection pass --ssh|--mssh option.
 .
 }
 
@@ -51,6 +56,8 @@ parse_opts () {
         u | usage )     usage && exit ;;
         h | help )      usage && exit ;;
         j | just-show ) no_arg; just_show="true" ;;
+        ssh )           no_arg; force_ssh="true" ;;
+        mssh )          no_arg; force_mssh="true" ;;
         ??* )           die "Illegal option --$OPT" ;;  # bad long option
         \? )            exit 2 ;;  # bad short option (error reported via getopts)
       esac
@@ -61,11 +68,19 @@ parse_opts () {
     if [ $# != 0 ] ; then usage && exit 1 ; fi
 }
 
-case "${EC2_SSH_BINARY}" in
-    "ssh") ssh_binary=ssh ;;
-    "mssh") ssh_binary=mssh ;;
-    *) ssh_binary=ssh ;;
-esac
+
+use_mssh () {
+    # Use the tool selected by command-line.
+    if [ "${force_mssh}" = "true" ] ; then return 0 ; fi
+    if [ "${force_ssh}" = "true" ] ; then return 1 ; fi
+    # Use the tool set in an environment variable.
+    if [ "${EC2_SSH_BINARY}" = "mssh" ] ; then return 0 ; fi
+    if [ "${EC2_SSH_BINARY}" = "ssh" ] ; then return 1 ; fi
+    # If mssh is installed, use it.
+    if command -v mssh > /dev/null ; then return 0 ; fi
+    # Default to use ssh.
+    return 1
+}
 
 check_dependencies
 parse_opts "$@"
@@ -117,7 +132,7 @@ if [ "${just_show}" = "true" ] ; then
 fi
 
 
-if [ "${ssh_binary}" = "mssh" ] ; then
+if use_mssh ; then
     ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
 else
     ssh_cmd="ssh -l ${ssh_user} ${private_ip}"

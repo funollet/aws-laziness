@@ -22,10 +22,15 @@ Usage: $(basename "$0")
     -e, --env=ENV   Work on this environment (default: prod).
     -f, --flush     Flush cached data.
     -l USER         Login with this username (as in 'ssh -l')
+    --ssh           Force to connect using ssh.
+    --mssh          Force to connect using mssh.
 
-By default this tool connects using 'ssh'. To connect using 'mssh' set this env var:
+By default this tool connects using 'ssh'. If 'mssh' is found it will be used instead.
+To use either 'ssh' or 'mssh' for all connections set this env var:
 
     EC2_SSH_BINARY=mssh
+
+To change the default option just for one connection pass --ssh|--mssh option.
 .
 }
 
@@ -52,6 +57,8 @@ parse_opts () {
         e | env )       needs_arg; env="$OPTARG" ;;
         f | flush )     no_arg; flush_cache && exit ;;
         l )             needs_arg; ssh_user="$OPTARG" ;;
+        ssh )           no_arg; force_ssh="true" ;;
+        mssh )          no_arg; force_mssh="true" ;;
         ??* )           die "Illegal option --$OPT" ;;  # bad long option
         \? )            exit 2 ;;  # bad short option (error reported via getopts)
       esac
@@ -115,11 +122,19 @@ jq_name_and_ip () {
 
 check_dependencies
 
-case "${EC2_SSH_BINARY}" in
-    "ssh")      ssh_binary=ssh ;;
-    "mssh")     ssh_binary=mssh ;;
-    *)          ssh_binary=ssh ;;
-esac
+use_mssh () {
+    # Use the tool selected by command-line.
+    if [ "${force_mssh}" = "true" ] ; then return 0 ; fi
+    if [ "${force_ssh}" = "true" ] ; then return 1 ; fi
+    # Use the tool set in an environment variable.
+    if [ "${EC2_SSH_BINARY}" = "mssh" ] ; then return 0 ; fi
+    if [ "${EC2_SSH_BINARY}" = "ssh" ] ; then return 1 ; fi
+    # If mssh is installed, use it.
+    if command -v mssh > /dev/null ; then return 0 ; fi
+    # Default to use ssh.
+    return 1
+}
+
 
 parse_opts "$@"
 
@@ -154,7 +169,7 @@ unset -f get_ec2roles
 
 echo "${host_and_addr}"
 
-if [ "${ssh_binary}" = "mssh" ] ; then
+if use_mssh ; then
     ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
 else
     ssh_cmd="ssh -l ${ssh_user} ${private_ip}"
