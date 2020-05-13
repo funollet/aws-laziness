@@ -1,7 +1,5 @@
 #!/bin/bash
 # ecsssh
-#
-# Given an ECS service, ssh to any EC2 instance running it.
 
 set -e
 set -o pipefail
@@ -23,7 +21,10 @@ check_dependencies () {
 
 usage () {
     cat <<.
-Usage: $(basename "$0")
+Usage: $(basename "$0") [OPTIONS]
+
+Pick an ECS service, ssh to any EC2 instance running it.
+
     -h, --help          Show this message and exit.
     -j, --just-show     Just show the IP address. Don't ssh to the instance.
     --ssh               Force to connect using ssh.
