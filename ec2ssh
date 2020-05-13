@@ -3,6 +3,9 @@
 
 cache='/tmp/ec2ssh.cache'
 
+export AWS_DEFAULT_OUTPUT=json
+
+
 info () { echo "[INFO]" $* ; }
 
 
@@ -74,7 +77,7 @@ parse_opts () {
 
 get_ec2roles () {
     # Retrieves all EC2 tags "Role"
-    aws ec2 describe-instances --no-paginate --output json \
+    aws ec2 describe-instances --no-paginate \
         --query "Reservations[].Instances" \
         --filters "Name=tag:Env,Values=${env}" "Name=instance-state-name,Values=running" \
     | jq -r '.[][].Tags[] | select(.Key=="Role") | .Value' \
@@ -103,7 +106,7 @@ ec2roles () {
 
 
 ec2instances () {
-    aws ec2 describe-instances --no-paginate --output json \
+    aws ec2 describe-instances --no-paginate \
         --filters "Name=tag:Env,Values=${env}" "Name=tag:Role,Values=${role}" \
                   "Name=instance-state-name,Values=running" \
         --query "Reservations[].Instances"
@@ -146,7 +149,7 @@ private_ip=$(echo "${host_and_addr}" | awk '{print $2}')
 instance_id=$(echo "${host_and_addr}" | awk '{print $3}')
 
 image_id=$(
-    aws ec2 describe-instances --output json \
+    aws ec2 describe-instances \
     --filters "Name=instance-id,Values=${instance_id}" \
     | jq -r '.Reservations[].Instances[].ImageId')
 
