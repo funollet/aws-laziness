@@ -91,7 +91,7 @@ cluster=$(
     jq -r '.clusterArns[] |
         [ . , ( . | sub(".*:cluster/"; "") ) ] | @tsv' \
     | sort \
-    | fzf -0 --prompt 'cluster> ' --with-nth=2.. --no-multi --no-sort \
+    | fzf --prompt 'cluster> ' --with-nth=2.. --no-multi --no-sort \
     | awk '{print $1}'
 )
 
@@ -99,7 +99,7 @@ service=$(
     aws ecs list-services --cluster "${cluster}" \
     | jq -r '.serviceArns[]' \
     | cut -d'/' -f2- \
-    | fzf -0 --prompt 'service> '
+    | fzf --prompt 'service> '
 )
 
 task_ids=$(aws ecs list-tasks --cluster $cluster --service $service \
@@ -113,7 +113,7 @@ c_instance=$(
             .lastStatus,
             ( .containerInstanceArn | sub(".*:"; "") )
         ] | @tsv' \
-    | fzf -0 --prompt 'container-instance> ' --with-nth=2.. \
+    | fzf --prompt 'container-instance> ' --with-nth=2.. \
     | awk '{print $1}')
 
 instance_id=$(
