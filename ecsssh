@@ -23,8 +23,8 @@ usage () {
 Usage: $(basename "$0")
     -h, --help          Show this message and exit.
     -j, --just-show     Just show the IP address. Don't ssh to the instance.
-    --ssh           Force to connect using ssh.
-    --mssh          Force to connect using mssh.
+    --ssh               Force to connect using ssh.
+    --mssh              Force to connect using mssh.
 
 By default this tool connects using 'ssh'. If 'mssh' is found it will be used instead.
 To use either 'ssh' or 'mssh' for all connections set this env var:
