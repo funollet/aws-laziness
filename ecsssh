@@ -73,6 +73,14 @@ parse_opts () {
 }
 
 
+check_aws_credentials () {
+    if ! aws sts get-caller-identity > /dev/null 2>&1 ; then
+        echo "AWS identity validation failed. Check your AWS credentials."
+        exit 1
+    fi
+}
+
+
 use_mssh () {
     # Use the tool selected by command-line.
     if [ "${force_mssh}" = "true" ] ; then return 0 ; fi
@@ -86,8 +94,10 @@ use_mssh () {
     return 1
 }
 
+
 check_dependencies
 parse_opts "$@"
+check_aws_credentials
 
 
 cluster=$(

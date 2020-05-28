@@ -128,7 +128,13 @@ jq_name_and_ip () {
 }
 
 
-check_dependencies
+check_aws_credentials () {
+    if ! aws sts get-caller-identity > /dev/null 2>&1 ; then
+        echo "AWS identity validation failed. Check your AWS credentials."
+        exit 1
+    fi
+}
+
 
 use_mssh () {
     # Use the tool selected by command-line.
@@ -144,7 +150,10 @@ use_mssh () {
 }
 
 
+
+check_dependencies
 parse_opts "$@"
+check_aws_credentials
 
 role=$(ec2roles)
 host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "(${env}) Host> ")
