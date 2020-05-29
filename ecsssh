@@ -153,7 +153,7 @@ ssh_user=$(
     && echo ubuntu || echo ec2-user
 )
 
-echo "${instance_id}	${private_ip}"
+echo "Host: ${instance_id}	${private_ip}"
 
 if [ "${just_show}" = "true" ] ; then
     exit 0
