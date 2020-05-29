@@ -109,26 +109,62 @@ cluster=$(
     | awk '{print $1}'
 )
 
+cluster_short=${cluster#*:cluster/}
+
 service=$(
     aws ecs list-services --cluster "${cluster}" \
-    | jq -r '.serviceArns[]' \
-    | cut -d'/' -f2- \
-    | fzf --prompt "${cluster}> " --header 'Service'
+    | jq -r '.serviceArns[] | sub(".*/"; "")' \
+    | fzf --prompt "${cluster_short}> " --header 'Service'
 )
 
-task_ids=$(aws ecs list-tasks --cluster $cluster --service $service \
-    | jq -r '.taskArns[]'
+
+running_tasks () {
+    local tasks
+    tasks=$(aws ecs list-tasks --cluster "${cluster}" --service "${service}" --desired-status RUNNING \
+        | jq -r '.taskArns[]')
+
+    if [ -n "${tasks}" ] ; then
+        aws ecs describe-tasks --cluster "${cluster}" --tasks ${tasks} \
+        | jq -r '.tasks[] | [
+                .taskArn,
+                .lastStatus,
+                ( .startedAt  | sub("T"; " ") | sub("\\..*\\+"; " +") ),
+                ( .taskArn | sub(".*:"; "") )
+            ] | @tsv'
+    fi
+}
+
+
+stopped_tasks () {
+    local tasks
+    tasks=$(aws ecs list-tasks --cluster "${cluster}" --service "${service}" --desired-status STOPPED \
+        | jq -r '.taskArns[]')
+
+    if [ -n "${tasks}" ] ; then
+        aws ecs describe-tasks --cluster "${cluster}" --tasks ${tasks} \
+        | jq -r '.tasks[] | [
+                .taskArn,
+                .lastStatus,
+                ( .stoppedAt | sub("T"; " ") | sub("\\..*\\+"; " +") ),
+                ( .taskArn | sub(".*:"; "") )
+            ] | @tsv'
+    fi
+}
+
+
+_header_task="Status	Started / stopped at            Task"
+task_id=$(
+    ( running_tasks ; stopped_tasks ) \
+    | sort -k3 -r \
+    | fzf --no-sort --prompt "${service}> " --header="${_header_task}" --with-nth=2.. \
+    | awk '{print $1}'
 )
+
 
 c_instance=$(
-    aws ecs describe-tasks --cluster $cluster --tasks $task_ids \
-    | jq -r '.tasks[] | [
-            .containerInstanceArn,
-            .lastStatus,
-            ( .containerInstanceArn | sub(".*:"; "") )
-        ] | @tsv' \
-    | fzf --prompt "${service}> " --header='Status	ContainerInstance' --with-nth=2.. \
-    | awk '{print $1}')
+    aws ecs describe-tasks --cluster $cluster --tasks $task_id \
+    | jq -r '.tasks[].containerInstanceArn'
+)
 
 instance_id=$(
     aws ecs describe-container-instances --cluster "${cluster}" \
