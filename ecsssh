@@ -113,7 +113,7 @@ service=$(
     aws ecs list-services --cluster "${cluster}" \
     | jq -r '.serviceArns[]' \
     | cut -d'/' -f2- \
-    | fzf --prompt 'service> '
+    | fzf --prompt "${cluster}> " --header 'Service'
 )
 
 task_ids=$(aws ecs list-tasks --cluster $cluster --service $service \
@@ -127,7 +127,7 @@ c_instance=$(
             .lastStatus,
             ( .containerInstanceArn | sub(".*:"; "") )
         ] | @tsv' \
-    | fzf --prompt 'container-instance> ' --with-nth=2.. \
+    | fzf --prompt "${service}> " --header='Status	ContainerInstance' --with-nth=2.. \
     | awk '{print $1}')
 
 instance_id=$(
@@ -154,7 +154,7 @@ ssh_user=$(
 )
 
 if [ "${just_show}" = "true" ] ; then
-    echo "${private_ip}"
+    echo "${instance_id}	${private_ip}"
     exit 0
 fi
 
