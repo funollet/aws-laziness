@@ -153,11 +153,11 @@ ssh_user=$(
     && echo ubuntu || echo ec2-user
 )
 
+echo "${instance_id}	${private_ip}"
+
 if [ "${just_show}" = "true" ] ; then
-    echo "${instance_id}	${private_ip}"
     exit 0
 fi
-
 
 if use_mssh ; then
     ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
