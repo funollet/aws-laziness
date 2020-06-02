@@ -16,6 +16,10 @@ check_dependencies () {
         echo "Please install fzf (https://github.com/junegunn/fzf)" ; exit 1
     fi
     if ! command -v aws > /dev/null ; then echo "Please install aws" ; exit 1 ; fi
+    if ! aws --version | grep -q 'aws-cli/2' ; then
+        echo "This tool requires aws-cli v2. Please upgrade."
+        exit 1
+    fi
 }
 
 
