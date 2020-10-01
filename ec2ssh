@@ -124,10 +124,10 @@ jq_name_and_ip () {
     cat <<.
         .[][] |
         # enrich all tags with IP address
-        .Tags[] + { "Ip": .PrivateIpAddress, "InstanceId": .InstanceId } |
+        .Tags[] + { "Ip": .PrivateIpAddress, "InstanceId": .InstanceId, "LaunchTime": .LaunchTime } |
         # keep only tags with Key="Name"
         select(.Key=="Name") |
-        [ .Value, .Ip, .InstanceId ] | @tsv
+        [ .Value, .Ip, .InstanceId, .LaunchTime ] | @tsv
 .
 }
 
@@ -160,7 +160,8 @@ parse_opts "$@"
 check_aws_credentials
 
 role=$(ec2roles)
-host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) | fzf -n1 --prompt "(${env}) Host> ")
+host_and_addr=$(ec2instances | jq -r -f <(jq_name_and_ip) \
+    | sort -k4 -r | fzf -n1,2,3 --no-sort --prompt "(${env}) Host> ")
 private_ip=$(echo "${host_and_addr}" | awk '{print $2}')
 instance_id=$(echo "${host_and_addr}" | awk '{print $3}')
 
