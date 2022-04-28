@@ -87,6 +87,7 @@ get_ec2roles () {
     aws ec2 describe-instances --no-paginate \
         --query "Reservations[].Instances" \
         --filters "Name=tag:Env,Values=${env}" "Name=instance-state-name,Values=running" \
+        --profile ${env} \
     | jq -r '.[][].Tags[] | select(.Key=="Role") | .Value' \
     | sort | uniq
 }
@@ -116,7 +117,8 @@ ec2instances () {
     aws ec2 describe-instances --no-paginate \
         --filters "Name=tag:Env,Values=${env}" "Name=tag:Role,Values=${role}" \
                   "Name=instance-state-name,Values=running" \
-        --query "Reservations[].Instances"
+        --query "Reservations[].Instances" \
+        --profile ${env}
 }
 
 
@@ -168,10 +170,11 @@ instance_id=$(echo "${host_and_addr}" | awk '{print $3}')
 image_id=$(
     aws ec2 describe-instances \
     --filters "Name=instance-id,Values=${instance_id}" \
+    --profile ${env} \
     | jq -r '.Reservations[].Instances[].ImageId')
 
 if [ -z "${ssh_user}" ] ; then
-    ami_name=$(aws ec2 describe-images --image-ids "${image_id}" \
+    ami_name=$(aws ec2 describe-images --image-ids "${image_id}" --profile ${env} \
         | jq -r '.Images[]? | .Name,.Tags[]?.Value')
     ssh_user=$(
         if echo "${ami_name}" | grep -E -q -i 'ubuntu' ; then
@@ -192,7 +195,7 @@ unset -f get_ec2roles
 info "Connecting to: ${host_and_addr}"
 
 if use_mssh ; then
-    ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
+    ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip} -u ${env}"
 else
     ssh_cmd="ssh -l ${ssh_user} ${private_ip}"
 fi

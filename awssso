@@ -1,0 +1,71 @@
+#!/bin/bash
+
+CREDENTIALS_PATH="$HOME/.aws/credentials"
+LANDING_ROLE_NAME="Administration" # Can be Administration, Backend, Frontend, Analytics, Android and Marketing
+LOWERCASE_LANDING_ROLE_NAME="$(echo "$LANDING_ROLE_NAME" |  tr '[:upper:]' '[:lower:]')"
+ROLE_TO_ASSUME="federated-${LOWERCASE_LANDING_ROLE_NAME}"
+LANDING_ACCOUNT_ID="455637678604"
+LANDING_NAME_PROFILE="${LANDING_ACCOUNT_ID}_${LANDING_ROLE_NAME}"
+PROD_AWS_ACCOUNTID="745640521341"
+BETA_AWS_ACCOUNTID="139222918132"
+DEVEL_AWS_ACCOUNTID="567828013335"
+SECURITY_AWS_ACCOUNTID="786495271719"
+
+echo -n '' > $CREDENTIALS_PATH
+
+aws sso login
+
+token=$(cat ~/.aws/sso/cache/*.json | jq -r '.accessToken | select( . != null )' | sed 's/"//g')
+credentials=$(aws sso get-role-credentials --role-name $LANDING_ROLE_NAME --account-id $LANDING_ACCOUNT_ID --access-token $token --region eu-west-1)
+access_key=$(echo "$credentials" | jq '.roleCredentials.accessKeyId' | sed 's/"//g')
+secret_access_key=$(echo "$credentials" | jq '.roleCredentials.secretAccessKey' | sed 's/"//g')
+session_token=$(echo "$credentials" | jq '.roleCredentials.sessionToken' | sed 's/"//g')
+
+echo "[$LANDING_NAME_PROFILE]" >> $CREDENTIALS_PATH
+echo "aws_access_key_id=$access_key" >> $CREDENTIALS_PATH
+echo "aws_secret_access_key=$secret_access_key" >> $CREDENTIALS_PATH
+echo "aws_session_token=$session_token" >> $CREDENTIALS_PATH
+
+echo -n $'\n' >> $CREDENTIALS_PATH
+
+prod_credentials=$(aws --profile $LANDING_NAME_PROFILE sts assume-role --role-arn "arn:aws:iam::$PROD_AWS_ACCOUNTID:role/federated/$ROLE_TO_ASSUME" --role-session-name prod)
+prod_access_key=$(echo "$prod_credentials" | jq '.Credentials.AccessKeyId' | sed 's/"//g')
+prod_secret_access_key=$(echo "$prod_credentials" | jq '.Credentials.SecretAccessKey' | sed 's/"//g')
+prod_session_token=$(echo "$prod_credentials" | jq '.Credentials.SessionToken' | sed 's/"//g')
+echo "[prod]" >> $CREDENTIALS_PATH
+echo "aws_access_key_id=$prod_access_key" >> $CREDENTIALS_PATH
+echo "aws_secret_access_key=$prod_secret_access_key" >> $CREDENTIALS_PATH
+echo "aws_session_token=$prod_session_token" >> $CREDENTIALS_PATH
+
+echo -n $'\n' >> $CREDENTIALS_PATH
+
+beta_credentials=$(aws --profile $LANDING_NAME_PROFILE sts assume-role --role-arn "arn:aws:iam::$BETA_AWS_ACCOUNTID:role/federated/$ROLE_TO_ASSUME" --role-session-name beta)
+beta_access_key=$(echo "$beta_credentials" | jq '.Credentials.AccessKeyId' | sed 's/"//g')
+beta_secret_access_key=$(echo "$beta_credentials" | jq '.Credentials.SecretAccessKey' | sed 's/"//g')
+beta_session_token=$(echo "$beta_credentials" | jq '.Credentials.SessionToken' | sed 's/"//g')
+echo "[beta]" >> $CREDENTIALS_PATH
+echo "aws_access_key_id=$beta_access_key" >> $CREDENTIALS_PATH
+echo "aws_secret_access_key=$beta_secret_access_key" >> $CREDENTIALS_PATH
+echo "aws_session_token=$beta_session_token" >> $CREDENTIALS_PATH
+
+echo -n $'\n' >> $CREDENTIALS_PATH
+
+devel_credentials=$(aws --profile $LANDING_NAME_PROFILE sts assume-role --role-arn "arn:aws:iam::$DEVEL_AWS_ACCOUNTID:role/federated/$ROLE_TO_ASSUME" --role-session-name devel)
+devel_access_key=$(echo "$devel_credentials" | jq '.Credentials.AccessKeyId' | sed 's/"//g')
+devel_secret_access_key=$(echo "$devel_credentials" | jq '.Credentials.SecretAccessKey' | sed 's/"//g')
+devel_session_token=$(echo "$devel_credentials" | jq '.Credentials.SessionToken' | sed 's/"//g')
+echo "[devel]" >> $CREDENTIALS_PATH
+echo "aws_access_key_id=$devel_access_key" >> $CREDENTIALS_PATH
+echo "aws_secret_access_key=$devel_secret_access_key" >> $CREDENTIALS_PATH
+echo "aws_session_token=$devel_session_token" >> $CREDENTIALS_PATH
+
+echo -n $'\n' >> $CREDENTIALS_PATH
+
+sec_credentials=$(aws --profile $LANDING_NAME_PROFILE sts assume-role --role-arn "arn:aws:iam::$SECURITY_AWS_ACCOUNTID:role/federated/$ROLE_TO_ASSUME" --role-session-name sec)
+sec_access_key=$(echo "$sec_credentials" | jq '.Credentials.AccessKeyId' | sed 's/"//g')
+sec_secret_access_key=$(echo "$sec_credentials" | jq '.Credentials.SecretAccessKey' | sed 's/"//g')
+sec_session_token=$(echo "$sec_credentials" | jq '.Credentials.SessionToken' | sed 's/"//g')
+echo "[sec]" >> $CREDENTIALS_PATH
+echo "aws_access_key_id=$sec_access_key" >> $CREDENTIALS_PATH
+echo "aws_secret_access_key=$sec_secret_access_key" >> $CREDENTIALS_PATH
+echo "aws_session_token=$sec_session_token" >> $CREDENTIALS_PATH

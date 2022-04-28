@@ -25,14 +25,18 @@ check_dependencies () {
 
 usage () {
     cat <<.
-Usage: $(basename "$0") [OPTIONS]
+Usage: $(basename "$0") [OPTIONS] [ENV_NAME]
 
 Pick an ECS service, ssh to any EC2 instance running it.
+
+With no ENV_NAME defaults to 'prod'.
 
     -h, --help          Show this message and exit.
     -j, --just-show     Just show the IP address. Don't ssh to the instance.
     --ssh               Force to connect using ssh.
     --mssh              Force to connect using mssh.
+
+
 
 By default this tool connects using 'ssh'. If 'mssh' is found it will be used instead.
 To use either 'ssh' or 'mssh' for all connections set this env var:
@@ -50,6 +54,7 @@ no_arg() { if [ -n "$OPTARG" ]; then die "No arg allowed for --$OPT option"; fi;
 parse_opts () {
 
     # Default values.
+    env="prod"
     just_show="false"
 
     # Parse arguments. Supports long options on Linux and MacOS (without getopt).
@@ -72,8 +77,8 @@ parse_opts () {
     done
     shift $((OPTIND-1)) # remove parsed options and args from $@ list
 
-    # Parse arguments.
-    if [ $# != 0 ] ; then usage && exit 1 ; fi
+    # Finish if received some unknown option.
+    if [ $# != 0 ] ; then env="$*" ; fi
 }
 
 
@@ -105,7 +110,7 @@ check_aws_credentials
 
 
 cluster=$(
-    aws ecs list-clusters | \
+    aws ecs list-clusters --profile ${env} | \
     jq -r '.clusterArns[] |
         [ . , ( . | sub(".*:cluster/"; "") ) ] | @tsv' \
     | sort \
@@ -116,7 +121,7 @@ cluster=$(
 cluster_short=${cluster#*:cluster/}
 
 service=$(
-    aws ecs list-services --cluster "${cluster}" \
+    aws ecs list-services --cluster "${cluster}" --profile ${env} \
     | jq -r '.serviceArns[] | sub(".*/"; "")' \
     | fzf --prompt "${cluster_short}> " --header 'Service'
 )
@@ -124,11 +129,11 @@ service=$(
 
 running_tasks () {
     local tasks
-    tasks=$(aws ecs list-tasks --cluster "${cluster}" --service "${service}" --desired-status RUNNING \
+    tasks=$(aws ecs list-tasks --cluster "${cluster}" --service "${service}" --desired-status RUNNING --profile ${env}\
         | jq -r '.taskArns[]')
 
     if [ -n "${tasks}" ] ; then
-        aws ecs describe-tasks --cluster "${cluster}" --tasks ${tasks} \
+        aws ecs describe-tasks --cluster "${cluster}" --tasks ${tasks} --profile ${env}\
         | jq -r '.tasks[] | [
                 .taskArn,
                 .lastStatus,
@@ -141,11 +146,11 @@ running_tasks () {
 
 stopped_tasks () {
     local tasks
-    tasks=$(aws ecs list-tasks --cluster "${cluster}" --service "${service}" --desired-status STOPPED \
+    tasks=$(aws ecs list-tasks --cluster "${cluster}" --service "${service}" --desired-status STOPPED --profile ${env}\
         | jq -r '.taskArns[]')
 
     if [ -n "${tasks}" ] ; then
-        aws ecs describe-tasks --cluster "${cluster}" --tasks ${tasks} \
+        aws ecs describe-tasks --cluster "${cluster}" --tasks ${tasks} --profile ${env}\
         | jq -r '.tasks[] | [
                 .taskArn,
                 .lastStatus,
@@ -166,28 +171,32 @@ task_id=$(
 
 
 c_instance=$(
-    aws ecs describe-tasks --cluster $cluster --tasks $task_id \
+    aws ecs describe-tasks --cluster $cluster --tasks $task_id --profile ${env}\
     | jq -r '.tasks[].containerInstanceArn'
 )
 
 instance_id=$(
     aws ecs describe-container-instances --cluster "${cluster}" \
     --container-instances "${c_instance}" \
+    --profile ${env} \
     | jq -r '.containerInstances[].ec2InstanceId')
 
 private_ip=$(
     aws ec2 describe-instances \
     --filters "Name=instance-id,Values=${instance_id}" \
     --query 'Reservations[].Instances[]' \
+    --profile ${env} \
     | jq -r '.[].PrivateIpAddress')
 
 image_id=$(
     aws ec2 describe-instances \
     --filters "Name=instance-id,Values=${instance_id}" \
+    --profile ${env} \
     | jq -r '.Reservations[].Instances[].ImageId')
 
 ssh_user=$(
     aws ec2 describe-images --image-ids "${image_id}" \
+    --profile ${env} \
     | jq -r '.Images[]? | .Name,.Tags[]?.Value' \
     | grep -q -i ubuntu \
     && echo ubuntu || echo ec2-user
@@ -200,7 +209,7 @@ if [ "${just_show}" = "true" ] ; then
 fi
 
 if use_mssh ; then
-    ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip}"
+    ssh_cmd="mssh -t ${instance_id} ${ssh_user}@${private_ip} -u ${env}"
 else
     ssh_cmd="ssh -l ${ssh_user} ${private_ip}"
 fi
